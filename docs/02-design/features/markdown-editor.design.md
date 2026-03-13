@@ -6,7 +6,7 @@
 > **Version**: 0.2.0
 > **Author**: gimjaehwan
 > **Date**: 2026-03-13
-> **Status**: Updated
+> **Status**: Implemented
 > **Plan Ref**: `docs/01-plan/features/markdown-editor.plan.md`
 
 ---
@@ -239,13 +239,13 @@ function handleSave() {
 1. [x] 프로젝트 초기화 (Next.js + Tailwind + TypeScript)
 2. [x] `lib/markdown.ts` — 파싱 + 밑줄 전처리 + sanitize
 3. [x] `lib/storage.ts` — localStorage 유틸
-4. [ ] `components/EditorBlock.tsx` — 단일 블록 편집/렌더 전환
-5. [ ] `components/LinerEditor.tsx` — 블록 분리 + 포커스 관리
+4. [x] `components/EditorBlock.tsx` — 단일 블록 편집/렌더 전환
+5. [x] `components/LinerEditor.tsx` — 블록 분리 + 포커스 관리
 6. [x] `components/Toolbar.tsx` — 툴바 버튼
 7. [x] `components/StatusBar.tsx` — 상태바
-8. [ ] `app/page.tsx` — LinerEditor로 교체
-9. [ ] 다크/라이트 테마 스타일 완성
-10. [ ] MD 다운로드 기능 검증
+8. [x] `app/page.tsx` — LinerEditor로 교체
+9. [x] 다크/라이트 테마 스타일 완성
+10. [x] MD 다운로드 기능 검증
 
 ---
 

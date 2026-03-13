@@ -1,5 +1,7 @@
 {
   "feature": "markdown-editor",
-  "phase": "design",
+  "phase": "act",
+  "matchRate": 100,
+  "iterationCount": 1,
   "updatedAt": "2026-03-13T00:00:00Z"
 }

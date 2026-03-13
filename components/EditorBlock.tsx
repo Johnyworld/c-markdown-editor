@@ -2,11 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { parseMarkdown } from '@/lib/markdown'
-
-interface Block {
-  id: string
-  raw: string
-}
+import type { Block } from '@/lib/types'
 
 interface EditorBlockProps {
   block: Block

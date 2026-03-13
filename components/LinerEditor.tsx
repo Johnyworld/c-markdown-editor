@@ -1,12 +1,8 @@
 'use client'
 
-import { useState, useCallback, useId } from 'react'
+import { useState, useCallback } from 'react'
 import EditorBlock from './EditorBlock'
-
-interface Block {
-  id: string
-  raw: string
-}
+import type { Block } from '@/lib/types'
 
 function makeId() {
   return Math.random().toString(36).slice(2, 9)
@@ -33,11 +29,6 @@ export default function LinerEditor({ initialValue, onChange }: LinerEditorProps
   const [focusedId, setFocusedId] = useState<string | null>(
     () => blocks[0]?.id ?? null
   )
-
-  function update(next: Block[]) {
-    setBlocks(next)
-    onChange(blocksToRaw(next))
-  }
 
   const handleFocus = useCallback((id: string) => {
     setFocusedId(id)
