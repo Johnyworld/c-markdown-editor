@@ -3,7 +3,7 @@
 > **Summary**: 입력과 동시에 인라인 렌더링되는 통합 마크다운 에디터 설계 (liner 스타일)
 >
 > **Project**: test-claude-markdown-editor
-> **Version**: 0.3.0
+> **Version**: 0.4.0
 > **Author**: gimjaehwan
 > **Date**: 2026-03-13
 > **Status**: Implemented
@@ -132,51 +132,78 @@ interface EditorBlockProps {
 
 ## 6. 마크다운 파싱 (`lib/markdown.ts`)
 
-### 밑줄 전처리 전략
+> **방침**: `marked.js` 등 외부 파서 라이브러리를 사용하지 않고 직접 구현한다.
+> 이유: 외부 의존성 제거, `_밑줄_`·코드 블록 예외 등 커스텀 문법을 완전히 제어하기 위함.
 
-`_text_` → `<u>text</u>` 변환은 **코드 영역 바깥**에서만 적용한다.
+### 파싱 아키텍처
 
-제외 대상:
-- 인라인 코드: `` `...` ``
-- 펜스드 코드 블록: ` ```...``` `
+2단계 파이프라인으로 처리한다.
 
-**처리 순서:**
-1. raw 문자열에서 코드 영역(인라인 코드 + 펜스드 블록)을 추출하여 플레이스홀더로 치환
-2. 나머지 영역에만 `_text_` → `<u>text</u>` 정규식 적용
-3. 플레이스홀더를 원본 코드로 복원
-4. `marked.parse()` → `DOMPurify.sanitize()` 순으로 처리
+```
+raw string
+  │
+  ▼
+① Block-level 파싱   → 줄 단위로 순회, 블록 토큰 생성
+  │  헤딩(#), 코드블록(```), 인용(>), 목록(- / 1.), 표(|), 단락
+  ▼
+② Inline 파싱        → 각 블록의 텍스트에 인라인 규칙 적용
+  │  **bold**, *italic*, _underline_, ~~strike~~, `code`, [link](url)
+  ▼
+③ DOMPurify.sanitize → XSS 방어
+  │
+  ▼
+HTML string
+```
+
+### 지원 문법 및 변환 규칙
+
+**Block-level**
+
+| 문법 | 패턴 | 출력 |
+|------|------|------|
+| 헤딩 | `# ~ ######` | `<h1>~<h6>` |
+| 펜스드 코드 블록 | ` ```lang\n...\n``` ` | `<pre><code class="language-lang">` |
+| 인용 | `> text` | `<blockquote>` |
+| 순서 없는 목록 | `- ` / `* ` | `<ul><li>` |
+| 순서 있는 목록 | `1. ` | `<ol><li>` |
+| 구분선 | `---` / `***` | `<hr>` |
+| 표 | `| col |` + `|---|` | `<table>` |
+| 단락 | 그 외 텍스트 | `<p>` |
+
+**Inline (코드 영역 내부는 적용 제외)**
+
+| 문법 | 패턴 | 출력 |
+|------|------|------|
+| 굵게 | `**text**` | `<strong>` |
+| 기울임 | `*text*` | `<em>` |
+| 밑줄 (커스텀) | `_text_` | `<u>` |
+| 취소선 | `~~text~~` | `<del>` |
+| 인라인 코드 | `` `code` `` | `<code>` |
+| 링크 | `[label](url)` | `<a href>` |
+| 이미지 | `![alt](url)` | `<img>` |
+
+> **코드 블록 예외**: 인라인 파싱은 `<pre><code>` 내부와 인라인 `` `code` ``에는 적용하지 않는다.
+
+### 구현 구조
 
 ```ts
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
-
-function preprocessUnderline(raw: string): string {
-  const codeSegments: string[] = []
-
-  // 코드 영역을 플레이스홀더로 치환 (펜스드 블록 → 인라인 코드 순서 중요)
-  const masked = raw
-    .replace(/```[\s\S]*?```/g, (match) => {
-      codeSegments.push(match)
-      return `\x00CODE${codeSegments.length - 1}\x00`
-    })
-    .replace(/`[^`\n]+`/g, (match) => {
-      codeSegments.push(match)
-      return `\x00CODE${codeSegments.length - 1}\x00`
-    })
-
-  // 코드 외 영역에만 밑줄 변환 적용
-  const converted = masked.replace(/(?<![*_])_([^_\n]+)_(?![*_])/g, '<u>$1</u>')
-
-  // 플레이스홀더 복원
-  return converted.replace(/\x00CODE(\d+)\x00/g, (_, i) => codeSegments[Number(i)])
-}
+// lib/markdown.ts
 
 export function parseMarkdown(raw: string): string {
   if (typeof window === 'undefined') return ''
-  const preprocessed = preprocessUnderline(raw)
-  const html = marked.parse(preprocessed) as string
+  const html = parseBlocks(raw)
   return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } })
 }
+
+// 블록 단위 파싱 (줄 순회)
+function parseBlocks(raw: string): string { ... }
+
+// 인라인 파싱 (코드 영역 제외)
+function parseInline(text: string): string { ... }
+
+// 코드 영역 보호: 플레이스홀더 치환 후 인라인 적용, 복원
+function maskCodeSegments(text: string): [string, string[]] { ... }
+function restoreCodeSegments(text: string, segments: string[]): string { ... }
 ```
 
 ---
@@ -247,7 +274,6 @@ function handleSave() {
     "next": "^14",
     "react": "^18",
     "react-dom": "^18",
-    "marked": "^12",
     "dompurify": "^3"
   },
   "devDependencies": {
@@ -260,14 +286,16 @@ function handleSave() {
 }
 ```
 
+> `marked` 패키지 제거 — 파서 직접 구현으로 대체
+
 ---
 
 ## 12. 구현 순서
 
 1. [x] 프로젝트 초기화 (Next.js + Tailwind + TypeScript)
 2. [x] `lib/types.ts` — Block 공유 타입
-3. [x] `lib/markdown.ts` — 파싱 + 밑줄 전처리 + sanitize
-4. [x] `lib/markdown.ts` — 코드 블록 내 밑줄 변환 제외 처리
+3. [x] `lib/markdown.ts` — 커스텀 마크다운 파서 직접 구현 (marked 제거)
+4. [x] `marked` 패키지 제거 (`npm uninstall marked`)
 5. [x] `lib/storage.ts` — localStorage 유틸
 6. [x] `components/EditorBlock.tsx` — 단일 블록 편집/렌더 전환
 7. [x] `components/LinerEditor.tsx` — 블록 분리 + 포커스 관리
@@ -286,3 +314,4 @@ function handleSave() {
 | 0.1 | 2026-03-13 | Initial draft (split panel) | gimjaehwan |
 | 0.2 | 2026-03-13 | Split → Liner 스타일로 변경 | gimjaehwan |
 | 0.3 | 2026-03-13 | 코드 블록 내 밑줄 변환 제외 로직 추가, types.ts 반영 | gimjaehwan |
+| 0.4 | 2026-03-13 | 마크다운 파서 직접 구현으로 변경 (marked.js 제거), 파싱 아키텍처 설계 추가 | gimjaehwan |
