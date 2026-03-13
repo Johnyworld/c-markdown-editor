@@ -3,7 +3,7 @@
 > **Summary**: 입력과 동시에 인라인 렌더링되는 통합 마크다운 에디터 설계 (liner 스타일)
 >
 > **Project**: test-claude-markdown-editor
-> **Version**: 0.2.0
+> **Version**: 0.3.0
 > **Author**: gimjaehwan
 > **Date**: 2026-03-13
 > **Status**: Implemented
@@ -55,7 +55,8 @@ components/
 
 lib/
 ├── markdown.ts               # parseMarkdown(raw): string (DOMPurify sanitize 포함)
-└── storage.ts                # localStorage CRUD (content, filename, theme)
+├── storage.ts                # localStorage CRUD (content, filename, theme)
+└── types.ts                  # 공유 타입 (Block 인터페이스)
 ```
 
 ---
@@ -92,9 +93,6 @@ interface Block {
 // 상태
 const [blocks, setBlocks] = useState<Block[]>([])
 const [focusedId, setFocusedId] = useState<string | null>(null)
-
-// 블록 업데이트
-function updateBlock(id: string, raw: string) { ... }
 
 // Enter 키: 현재 블록 커서 위치에서 분리 → 새 블록 생성
 function splitBlock(id: string, before: string, after: string) { ... }
@@ -134,13 +132,43 @@ interface EditorBlockProps {
 
 ## 6. 마크다운 파싱 (`lib/markdown.ts`)
 
+### 밑줄 전처리 전략
+
+`_text_` → `<u>text</u>` 변환은 **코드 영역 바깥**에서만 적용한다.
+
+제외 대상:
+- 인라인 코드: `` `...` ``
+- 펜스드 코드 블록: ` ```...``` `
+
+**처리 순서:**
+1. raw 문자열에서 코드 영역(인라인 코드 + 펜스드 블록)을 추출하여 플레이스홀더로 치환
+2. 나머지 영역에만 `_text_` → `<u>text</u>` 정규식 적용
+3. 플레이스홀더를 원본 코드로 복원
+4. `marked.parse()` → `DOMPurify.sanitize()` 순으로 처리
+
 ```ts
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
-// _text_ → <u>text</u> (단독 밑줄, ** 또는 * 와 혼용 안 됨)
 function preprocessUnderline(raw: string): string {
-  return raw.replace(/(?<![*_])_([^_\n]+)_(?![*_])/g, '<u>$1</u>')
+  const codeSegments: string[] = []
+
+  // 코드 영역을 플레이스홀더로 치환 (펜스드 블록 → 인라인 코드 순서 중요)
+  const masked = raw
+    .replace(/```[\s\S]*?```/g, (match) => {
+      codeSegments.push(match)
+      return `\x00CODE${codeSegments.length - 1}\x00`
+    })
+    .replace(/`[^`\n]+`/g, (match) => {
+      codeSegments.push(match)
+      return `\x00CODE${codeSegments.length - 1}\x00`
+    })
+
+  // 코드 외 영역에만 밑줄 변환 적용
+  const converted = masked.replace(/(?<![*_])_([^_\n]+)_(?![*_])/g, '<u>$1</u>')
+
+  // 플레이스홀더 복원
+  return converted.replace(/\x00CODE(\d+)\x00/g, (_, i) => codeSegments[Number(i)])
 }
 
 export function parseMarkdown(raw: string): string {
@@ -237,15 +265,17 @@ function handleSave() {
 ## 12. 구현 순서
 
 1. [x] 프로젝트 초기화 (Next.js + Tailwind + TypeScript)
-2. [x] `lib/markdown.ts` — 파싱 + 밑줄 전처리 + sanitize
-3. [x] `lib/storage.ts` — localStorage 유틸
-4. [x] `components/EditorBlock.tsx` — 단일 블록 편집/렌더 전환
-5. [x] `components/LinerEditor.tsx` — 블록 분리 + 포커스 관리
-6. [x] `components/Toolbar.tsx` — 툴바 버튼
-7. [x] `components/StatusBar.tsx` — 상태바
-8. [x] `app/page.tsx` — LinerEditor로 교체
-9. [x] 다크/라이트 테마 스타일 완성
-10. [x] MD 다운로드 기능 검증
+2. [x] `lib/types.ts` — Block 공유 타입
+3. [x] `lib/markdown.ts` — 파싱 + 밑줄 전처리 + sanitize
+4. [x] `lib/markdown.ts` — 코드 블록 내 밑줄 변환 제외 처리
+5. [x] `lib/storage.ts` — localStorage 유틸
+6. [x] `components/EditorBlock.tsx` — 단일 블록 편집/렌더 전환
+7. [x] `components/LinerEditor.tsx` — 블록 분리 + 포커스 관리
+8. [x] `components/Toolbar.tsx` — 툴바 버튼
+9. [x] `components/StatusBar.tsx` — 상태바 (30초 interval 갱신 포함)
+10. [x] `app/page.tsx` — LinerEditor로 교체
+11. [x] 다크/라이트 테마 스타일 완성
+12. [x] MD 다운로드 기능 검증
 
 ---
 
@@ -255,3 +285,4 @@ function handleSave() {
 |---------|------|---------|--------|
 | 0.1 | 2026-03-13 | Initial draft (split panel) | gimjaehwan |
 | 0.2 | 2026-03-13 | Split → Liner 스타일로 변경 | gimjaehwan |
+| 0.3 | 2026-03-13 | 코드 블록 내 밑줄 변환 제외 로직 추가, types.ts 반영 | gimjaehwan |
