@@ -93,6 +93,7 @@ interface Block {
 // 상태
 const [blocks, setBlocks] = useState<Block[]>([])
 const [focusedId, setFocusedId] = useState<string | null>(null)
+//                                                    ^^^^ 초기값 null — 진입 시 포커스 없음 (FR-06)
 
 // Enter 키: 현재 블록 커서 위치에서 분리 → 새 블록 생성
 function splitBlock(id: string, before: string, after: string) { ... }
@@ -100,6 +101,16 @@ function splitBlock(id: string, before: string, after: string) { ... }
 // Backspace: 블록 시작에서 이전 블록과 병합
 function mergeWithPrev(id: string) { ... }
 ```
+
+**FR-06 — 초기 포커스 없음:**
+- `focusedId` 초기값을 `null`로 유지 (첫 번째 블록 ID로 설정하지 않음)
+- 모든 블록이 렌더 모드로 시작
+
+**FR-07 — 에디터 외부 클릭 시 blur:**
+- `LinerEditor`를 감싸는 `<div>`에 `ref` 부착
+- `page.tsx`에서 `document`의 `mousedown` 이벤트를 감지
+- 클릭 대상이 에디터 `ref` 영역 밖이면 `setFocusedId(null)` 호출
+- `Toolbar`, `StatusBar` 클릭 시에도 blur 처리됨
 
 ---
 
@@ -127,6 +138,11 @@ interface EditorBlockProps {
 - `<div dangerouslySetInnerHTML>` 렌더링
 - prose 스타일 적용
 - `onClick` → `onFocus(block.id)`
+
+**blur 처리 (FR-07):**
+- `LinerEditor`에 `editorRef` 부착, `page.tsx`에서 `document mousedown` 구독
+- `!editorRef.current.contains(e.target)` 이면 `setFocusedId(null)` 호출
+- `LinerEditor`의 `onBlurAll` prop으로 전달하거나, `focusedId` setter를 직접 노출
 
 ---
 
@@ -315,3 +331,4 @@ function handleSave() {
 | 0.2 | 2026-03-13 | Split → Liner 스타일로 변경 | gimjaehwan |
 | 0.3 | 2026-03-13 | 코드 블록 내 밑줄 변환 제외 로직 추가, types.ts 반영 | gimjaehwan |
 | 0.4 | 2026-03-13 | 마크다운 파서 직접 구현으로 변경 (marked.js 제거), 파싱 아키텍처 설계 추가 | gimjaehwan |
+| 0.5 | 2026-03-13 | FR-06/07 반영 — 초기 포커스 없음, 에디터 외부 클릭 시 blur 설계 추가 | gimjaehwan |
