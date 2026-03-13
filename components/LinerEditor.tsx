@@ -105,9 +105,32 @@ export default function LinerEditor({ initialValue, onChange }: LinerEditorProps
     });
   }, []);
 
+  // FR-08/09: 빈 문서 또는 하단 여백 클릭 시 새 블록 추가 or 마지막 빈 블록 포커스
+  const appendEmptyBlock = useCallback(() => {
+    setBlocks(prev => {
+      const last = prev[prev.length - 1];
+      if (last && last.raw.trim() === '') {
+        setFocusedId(last.id);
+        return prev;
+      }
+      const newId = makeId();
+      const next = [...prev, { id: newId, raw: '' }];
+      onChange(blocksToRaw(next));
+      setFocusedId(newId);
+      return next;
+    });
+  }, [onChange]);
+
   return (
-    <div className='h-full w-full overflow-y-auto px-8 py-6 bg-white dark:bg-gray-900 max-w-2xl mx-auto space-y-1'>
-      <div ref={editorContainerRef} className='editor-container'>
+    // FR-08: 빈 문서 영역 클릭 시 새 블록 생성 (target이 이 div 자체일 때만)
+    <div className='h-full w-full overflow-y-auto px-8 py-6 bg-white dark:bg-gray-900'>
+      <div
+        ref={editorContainerRef}
+        className='max-w-2xl mx-auto space-y-1'
+        onClick={e => {
+          if (e.target === e.currentTarget) appendEmptyBlock();
+        }}
+      >
         {blocks.map(block => (
           <EditorBlock
             key={block.id}
@@ -121,6 +144,8 @@ export default function LinerEditor({ initialValue, onChange }: LinerEditorProps
             onArrowDown={handleArrowDown}
           />
         ))}
+        {/* FR-09: 하단 항상 클릭 가능한 여백 */}
+        <div className='h-32 cursor-text' onClick={appendEmptyBlock} />
       </div>
     </div>
   );

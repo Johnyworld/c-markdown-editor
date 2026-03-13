@@ -40,6 +40,7 @@ export default function Page() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [mounted, setMounted] = useState(false)
+  const [clearKey, setClearKey] = useState(0)
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -91,6 +92,7 @@ export default function Page() {
     setRaw('')
     setLastSaved(null)
     saveContent('')
+    setClearKey((k) => k + 1)
   }, [])
 
   const handleFileNameChange = useCallback((name: string) => {
@@ -117,7 +119,7 @@ export default function Page() {
 
       <div className="flex-1 overflow-hidden">
         <LinerEditor
-          key={mounted ? 'ready' : 'loading'}
+          key={`editor-${clearKey}`}
           initialValue={raw}
           onChange={setRaw}
         />

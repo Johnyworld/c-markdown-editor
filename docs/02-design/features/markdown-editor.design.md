@@ -3,7 +3,7 @@
 > **Summary**: 입력과 동시에 인라인 렌더링되는 통합 마크다운 에디터 설계 (liner 스타일)
 >
 > **Project**: test-claude-markdown-editor
-> **Version**: 0.4.0
+> **Version**: 0.6.0
 > **Author**: gimjaehwan
 > **Date**: 2026-03-13
 > **Status**: Implemented
@@ -100,6 +100,9 @@ function splitBlock(id: string, before: string, after: string) { ... }
 
 // Backspace: 블록 시작에서 이전 블록과 병합
 function mergeWithPrev(id: string) { ... }
+
+// 빈 문서/하단 여백 클릭 시 새 블록 추가 + 포커스 (FR-08, FR-09)
+function appendEmptyBlock() { ... }
 ```
 
 **FR-06 — 초기 포커스 없음:**
@@ -107,10 +110,18 @@ function mergeWithPrev(id: string) { ... }
 - 모든 블록이 렌더 모드로 시작
 
 **FR-07 — 에디터 외부 클릭 시 blur:**
-- `LinerEditor`를 감싸는 `<div>`에 `ref` 부착
-- `page.tsx`에서 `document`의 `mousedown` 이벤트를 감지
-- 클릭 대상이 에디터 `ref` 영역 밖이면 `setFocusedId(null)` 호출
+- `LinerEditor` 내부 `editorContainerRef`에 `document mousedown` 리스너 등록
+- `!editorContainerRef.current.contains(e.target)` 이면 `setFocusedId(null)` 호출
 - `Toolbar`, `StatusBar` 클릭 시에도 blur 처리됨
+
+**FR-08 — 빈 문서 클릭 시 새 블록 생성:**
+- `blocks`가 비어 있거나 모든 블록의 `raw`가 빈 문자열인 경우, 에디터 영역 클릭 시 `appendEmptyBlock()` 호출
+- 단, 이미 블록이 있고 그 블록을 클릭한 경우는 해당 블록 포커스 (기존 동작 유지)
+
+**FR-09 — 하단 클릭 여백:**
+- 블록 목록 아래에 항상 최소 `h-32` 높이의 클릭 가능한 빈 영역을 렌더링
+- 해당 영역 클릭 시 `appendEmptyBlock()` 호출
+- 마지막 블록이 이미 빈 블록이면 새 블록을 추가하지 않고 해당 블록에 포커스
 
 ---
 
@@ -140,9 +151,12 @@ interface EditorBlockProps {
 - `onClick` → `onFocus(block.id)`
 
 **blur 처리 (FR-07):**
-- `LinerEditor`에 `editorRef` 부착, `page.tsx`에서 `document mousedown` 구독
-- `!editorRef.current.contains(e.target)` 이면 `setFocusedId(null)` 호출
-- `LinerEditor`의 `onBlurAll` prop으로 전달하거나, `focusedId` setter를 직접 노출
+- `LinerEditor` 내 `document mousedown` 리스너로 외부 클릭 감지 후 blur
+
+**FR-05 — 초기화:**
+- `page.tsx`의 `handleClear`에서 `raw = ''` 설정
+- `LinerEditor`는 `key` prop 변경으로 리마운트 → `rawToBlocks('')` 결과인 빈 블록 1개로 시작
+- `focusedId = null` 유지 (초기화 후에도 포커스 없는 상태)
 
 ---
 
@@ -320,6 +334,9 @@ function handleSave() {
 10. [x] `app/page.tsx` — LinerEditor로 교체
 11. [x] 다크/라이트 테마 스타일 완성
 12. [x] MD 다운로드 기능 검증
+13. [x] `page.tsx` — FR-05: `clearKey` 증가로 LinerEditor 리마운트, 빈 블록 1개로 리셋
+14. [x] `LinerEditor.tsx` — FR-08: 빈 문서 클릭 시 새 블록 생성 + 포커스
+15. [x] `LinerEditor.tsx` — FR-09: 하단 클릭 여백 (`h-32`) 추가, 클릭 시 새 블록 추가
 
 ---
 
@@ -332,3 +349,4 @@ function handleSave() {
 | 0.3 | 2026-03-13 | 코드 블록 내 밑줄 변환 제외 로직 추가, types.ts 반영 | gimjaehwan |
 | 0.4 | 2026-03-13 | 마크다운 파서 직접 구현으로 변경 (marked.js 제거), 파싱 아키텍처 설계 추가 | gimjaehwan |
 | 0.5 | 2026-03-13 | FR-06/07 반영 — 초기 포커스 없음, 에디터 외부 클릭 시 blur 설계 추가 | gimjaehwan |
+| 0.6 | 2026-03-13 | FR-05 수정, FR-08/09 추가 — 초기화 빈 블록, 빈 문서 클릭, 하단 여백 클릭 설계 추가 | gimjaehwan |
