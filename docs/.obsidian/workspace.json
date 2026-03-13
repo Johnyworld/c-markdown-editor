@@ -4,11 +4,11 @@
     "type": "split",
     "children": [
       {
-        "id": "7e20b2fa3af07f95",
+        "id": "5b76a0600ff45b82",
         "type": "tabs",
         "children": [
           {
-            "id": "5ac1b979e927d419",
+            "id": "aad0ebbd83ac9f7e",
             "type": "leaf",
             "state": {
               "type": "markdown",
@@ -183,6 +183,11 @@
       "bases:Create new base": false
     }
   },
-  "active": "5ac1b979e927d419",
-  "lastOpenFiles": []
+  "active": "aad0ebbd83ac9f7e",
+  "lastOpenFiles": [
+    "02-design/features/markdown-editor.design.md",
+    "01-plan/features/markdown-editor.plan.md",
+    "02-design/features",
+    "02-design"
+  ]
 }

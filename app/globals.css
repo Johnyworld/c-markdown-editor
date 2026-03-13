@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* prose 커스텀: 코드 블록 스타일 */
+.prose pre {
+  @apply rounded-lg overflow-x-auto;
+}
+
+.prose code {
+  @apply text-pink-600 dark:text-pink-400;
+}
+
+.prose pre code {
+  @apply text-inherit;
+}
+
+/* contentEditable 빈 상태 placeholder */
+[contenteditable]:empty::before {
+  content: attr(data-placeholder);
+  @apply text-gray-400 dark:text-gray-600 pointer-events-none;
+}
